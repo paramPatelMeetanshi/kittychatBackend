@@ -52,6 +52,131 @@ export const widgetStyles = `
     height: 100%;
   }
 
+  /* Mini CSS Cat Mascot */
+  .mini-cat {
+    position: relative;
+    width: 52px;
+    height: 52px;
+  }
+  .mini-cat-ear {
+    position: absolute;
+    top: 0;
+    width: 16px;
+    height: 18px;
+    background: #ff7c12;
+    z-index: 1;
+  }
+  .mini-cat-ear-l {
+    left: 6px;
+    border-radius: 3px 60% 3px 40%;
+    transform: rotate(-12deg);
+  }
+  .mini-cat-ear-r {
+    right: 6px;
+    border-radius: 60% 3px 40% 3px;
+    transform: rotate(12deg);
+  }
+  .mini-cat-ear::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 10px;
+    background: #ffadb5;
+    border-radius: 2px 50% 2px 50%;
+  }
+  .mini-cat-ear-r::after {
+    border-radius: 50% 2px 50% 2px;
+  }
+  .mini-cat-head {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 40px;
+    background: #ff7c12;
+    border-radius: 50% 50% 46% 46% / 55% 55% 45% 45%;
+    z-index: 2;
+    box-shadow: inset -3px -3px 8px #cc4f00, inset 2px 2px 6px #ffaa40;
+    overflow: visible;
+  }
+  .mini-cat-eye {
+    position: absolute;
+    top: 12px;
+    width: 12px;
+    height: 12px;
+    background: #0b0c10;
+    border-radius: 50%;
+    overflow: hidden;
+  }
+  .mini-cat-eye-l { left: 7px; }
+  .mini-cat-eye-r { right: 7px; }
+  .mini-cat-pupil {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 70%, #3fc5ff 0%, #0e70e3 50%, #011d4d 100%);
+    border-radius: 50%;
+  }
+  .mini-cat-glint {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    width: 4px;
+    height: 4px;
+    background: white;
+    border-radius: 50%;
+    opacity: 0.95;
+  }
+  .mini-cat-nose {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 4px;
+    background: #ff728a;
+    border-radius: 50% 50% 60% 60% / 40% 40% 80% 80%;
+  }
+  .mini-cat-mouth {
+    position: absolute;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 5px;
+    background: #40220d;
+    border-radius: 0 0 5px 5px;
+  }
+  .mini-cat-whisker {
+    position: absolute;
+    top: 24px;
+    width: 12px;
+    height: 1.5px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 1px;
+  }
+  .mini-cat-wl1 { left: -6px; transform: rotate(8deg); }
+  .mini-cat-wl2 { left: -8px; top: 27px; transform: rotate(-2deg); }
+  .mini-cat-wl3 { left: -5px; top: 30px; transform: rotate(-10deg); }
+  .mini-cat-wr1 { right: -6px; transform: rotate(-8deg); }
+  .mini-cat-wr2 { right: -8px; top: 27px; transform: rotate(2deg); }
+  .mini-cat-wr3 { right: -5px; top: 30px; transform: rotate(10deg); }
+
+  /* Breathing animation for the mini cat */
+  @keyframes miniCatBreathe {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(1px); }
+  }
+  .mini-cat-head {
+    animation: miniCatBreathe 3s infinite ease-in-out;
+  }
+
   .launcher-close {
     display: none;
   }

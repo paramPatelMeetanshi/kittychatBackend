@@ -57,60 +57,35 @@ export class KittyUI {
   }
 
   initEyeTracking() {
-    const launcherCat = this.shadow.querySelector(".launcher-cat");
-    if (!launcherCat) return;
-    const svg = launcherCat.querySelector("svg");
-    const leftPupil = svg ? svg.querySelector(".cat-pupil-left") : null;
-    const rightPupil = svg ? svg.querySelector(".cat-pupil-right") : null;
-
-    if (!leftPupil || !rightPupil) return;
-
-    const LEFT_EYE = { x: 72, y: 108 };
-    const RIGHT_EYE = { x: 128, y: 108 };
-    const MAX_PUPIL = 6;
-
-    const movePupil = (pupilEl, eyeCenter, mouseX, mouseY, svgRect) => {
-      const ex = svgRect.left + (eyeCenter.x / 200) * svgRect.width;
-      const ey = svgRect.top + (eyeCenter.y / 200) * svgRect.height;
-      const dx = mouseX - ex;
-      const dy = mouseY - ey;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const scale = svgRect.width / 200;
-      const maxPx = MAX_PUPIL * scale;
-      const clamped = Math.min(dist, maxPx);
-
-      if (clamped === 0) return;
-
-      const angle = Math.atan2(dy, dx);
-      const ox = (clamped / scale) * Math.cos(angle);
-      const oy = (clamped / scale) * Math.sin(angle);
-
-      pupilEl.setAttribute("cx", eyeCenter.x + ox);
-      pupilEl.setAttribute("cy", eyeCenter.y + oy);
-
-      const horizRatio = Math.abs(ox) / (MAX_PUPIL + 0.01);
-      pupilEl.setAttribute("rx", Math.max(4, 7 + horizRatio * 3));
-      pupilEl.setAttribute("ry", Math.max(7, 13 - horizRatio * 2));
-    };
+    // Mini CSS cat eye tracking — moves the pupil gradient toward cursor
+    const leftEye = this.shadow.querySelector('.mini-cat-eye-l .mini-cat-pupil');
+    const rightEye = this.shadow.querySelector('.mini-cat-eye-r .mini-cat-pupil');
+    if (!leftEye || !rightEye) return;
 
     const handleMove = (mouseX, mouseY) => {
-      if (this.chatWindow.classList.contains("open")) return;
-
-      const svgRect = svg.getBoundingClientRect();
-      if (svgRect.width === 0) return;
-
-      movePupil(leftPupil, LEFT_EYE, mouseX, mouseY, svgRect);
-      movePupil(rightPupil, RIGHT_EYE, mouseX, mouseY, svgRect);
+      if (this.chatWindow.classList.contains('open')) return;
+      const launcher = this.shadow.getElementById('launcher');
+      if (!launcher) return;
+      const rect = launcher.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = mouseX - cx;
+      const dy = mouseY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 2) return;
+      const angle = Math.atan2(dy, dx);
+      const maxShift = 2;
+      const strength = Math.min(dist * 0.02, maxShift);
+      const tx = Math.cos(angle) * strength;
+      const ty = Math.sin(angle) * strength;
+      leftEye.style.transform = `translate(${tx}px, ${ty}px)`;
+      rightEye.style.transform = `translate(${tx}px, ${ty}px)`;
     };
 
-    document.addEventListener("mousemove", (e) =>
-      handleMove(e.clientX, e.clientY),
-    );
-    document.addEventListener("mouseleave", () => {
-      leftPupil.setAttribute("cx", LEFT_EYE.x);
-      leftPupil.setAttribute("cy", LEFT_EYE.y);
-      rightPupil.setAttribute("cx", RIGHT_EYE.x);
-      rightPupil.setAttribute("cy", RIGHT_EYE.y);
+    document.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+    document.addEventListener('mouseleave', () => {
+      leftEye.style.transform = '';
+      rightEye.style.transform = '';
     });
   }
 

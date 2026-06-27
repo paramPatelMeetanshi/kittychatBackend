@@ -154,7 +154,22 @@ export const widgetTemplate = `
   </div>
   <div id="launcher">
     <div class="launcher-cat">
-      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><polygon points="28,72 52,20 72,68" fill="#E87800"/><polygon points="36,66 52,28 66,64" fill="#FF6B00"/><polygon points="128,68 148,20 172,72" fill="#E87800"/><polygon points="134,64 148,28 164,66" fill="#FF6B00"/><rect x="20" y="55" width="160" height="130" rx="22" fill="#E87800"/><rect x="32" y="65" width="136" height="110" rx="16" fill="#1A1A1A"/><ellipse cx="14" cy="162" rx="22" ry="13" fill="#1A1A1A"/><line x1="3" y1="173" x2="8" y2="180" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="175" x2="14" y2="183" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="21" y1="174" x2="24" y2="182" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="186" cy="162" rx="22" ry="13" fill="#1A1A1A"/><line x1="175" y1="173" x2="172" y2="181" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="184" y1="175" x2="183" y2="183" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="193" y1="174" x2="196" y2="182" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><g><circle cx="72" cy="108" r="22" fill="#F5D000"/><ellipse class="cat-pupil-left" cx="72" cy="108" rx="7" ry="13" fill="#1A1A1A"/><circle cx="76" cy="101" r="4" fill="white" opacity="0.7"/></g><g><circle cx="128" cy="108" r="22" fill="#F5D000"/><ellipse class="cat-pupil-right" cx="128" cy="108" rx="7" ry="13" fill="#1A1A1A"/><circle cx="132" cy="101" r="4" fill="white" opacity="0.7"/></g><line x1="100" y1="128" x2="100" y2="136" stroke="#E87800" stroke-width="2" stroke-linecap="round"/><path d="M93,134 Q100,130 107,134 Q110,138 100,145 Q90,138 93,134 Z" fill="#E87800"/><ellipse cx="96" cy="135" rx="3" ry="2" fill="#FF9F40" opacity="0.5"/><path d="M100,145 Q93,153 85,151" stroke="#E87800" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M100,145 Q107,153 115,151" stroke="#E87800" stroke-width="2" stroke-linecap="round" fill="none"/><line x1="35" y1="145" x2="88" y2="140" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/><line x1="35" y1="152" x2="88" y2="148" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/><line x1="35" y1="159" x2="88" y2="156" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/></svg>
+      <div class="mini-cat">
+        <div class="mini-cat-ear mini-cat-ear-l"></div>
+        <div class="mini-cat-ear mini-cat-ear-r"></div>
+        <div class="mini-cat-head">
+          <div class="mini-cat-eye mini-cat-eye-l"><div class="mini-cat-pupil"></div><div class="mini-cat-glint"></div></div>
+          <div class="mini-cat-eye mini-cat-eye-r"><div class="mini-cat-pupil"></div><div class="mini-cat-glint"></div></div>
+          <div class="mini-cat-nose"></div>
+          <div class="mini-cat-mouth"></div>
+          <div class="mini-cat-whisker mini-cat-wl1"></div>
+          <div class="mini-cat-whisker mini-cat-wl2"></div>
+          <div class="mini-cat-whisker mini-cat-wl3"></div>
+          <div class="mini-cat-whisker mini-cat-wr1"></div>
+          <div class="mini-cat-whisker mini-cat-wr2"></div>
+          <div class="mini-cat-whisker mini-cat-wr3"></div>
+        </div>
+      </div>
     </div>
     <div class="launcher-close">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
