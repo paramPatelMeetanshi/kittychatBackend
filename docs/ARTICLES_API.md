@@ -81,7 +81,7 @@ The `content` field contains HTML that should be rendered in the widget.
 
 ```javascript
 async function loadArticles() {
-  const res = await fetch('http://192.168.0.166:3001/api/articles');
+  const res = await fetch('http://:3001/api/articles');
   const articles = await res.json();
   renderArticleList(articles);
 }
@@ -113,7 +113,7 @@ function renderArticleList(articles) {
 
 ```javascript
 async function openArticle(articleId) {
-  const res = await fetch(`http://192.168.0.166:3001/api/articles/${articleId}`);
+  const res = await fetch(`http://:3001/api/articles/${articleId}`);
   const article = await res.json();
 
   const viewer = document.getElementById('article-viewer');

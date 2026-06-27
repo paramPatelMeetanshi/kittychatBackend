@@ -11,7 +11,7 @@ This document is for the JS developer who will build the chat widget UI. It cove
 ws://<SERVER_IP>:3001/widget?sessionId=<UNIQUE_SESSION_ID>
 ```
 
-- `SERVER_IP` — The server IP (e.g., `192.168.0.166`)
+- `SERVER_IP` — The server IP (e.g., ``)
 - `sessionId` — A unique UUID per visitor session. Store in `sessionStorage` (per-tab) or `localStorage` (cross-tab).
 
 No authentication required. The `sessionId` is the visitor identity.
@@ -245,7 +245,7 @@ On disconnect, wait 3 seconds and reconnect with same `sessionId`. Server will r
 
 ```
 1. Generate sessionId (UUID, store in sessionStorage)
-2. Connect: ws://192.168.0.166:3001/widget?sessionId=<id>
+2. Connect: ws://:3001/widget?sessionId=<id>
 3. onopen → send set_name, set_metadata, page_view
 4. Receive "history" → render past messages
 5. User types → send typing:true, after 2s → typing:false
@@ -289,7 +289,7 @@ No authentication required for upload.
 {
   "success": true,
   "file": {
-    "url": "http://192.168.0.166:3001/uploads/a1b2c3d4.png",
+    "url": "http://:3001/uploads/a1b2c3d4.png",
     "name": "screenshot.png",
     "size": 245000,
     "type": "image/png",
@@ -305,7 +305,7 @@ No authentication required for upload.
   "type": "message",
   "content": "Here is the screenshot",
   "file": {
-    "url": "http://192.168.0.166:3001/uploads/a1b2c3d4.png",
+    "url": "http://:3001/uploads/a1b2c3d4.png",
     "name": "screenshot.png",
     "size": 245000,
     "type": "image/png"

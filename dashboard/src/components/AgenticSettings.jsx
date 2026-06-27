@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bot, Zap, ToggleLeft, ToggleRight, AlertCircle, Clock, Timer, MessageSquare, Save } from "lucide-react";
+import { Bot, Zap, ToggleLeft, ToggleRight, AlertCircle, Clock, Timer, MessageSquare, Save, Bell } from "lucide-react";
 
 const SERVER_HOST = window.location.hostname + ":3001";
 const API_URL = `http://${SERVER_HOST}`;
@@ -16,9 +16,17 @@ export default function AgenticSettings({ token }) {
   const [fallbackSaved, setFallbackSaved] = useState(false);
   const [promptsSaved, setPromptsSaved] = useState(false);
 
+  // Discord state
+  const [discordEnabled, setDiscordEnabled] = useState(false);
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState("");
+  const [discordPrompt, setDiscordPrompt] = useState("");
+  const [discordClassifierReady, setDiscordClassifierReady] = useState(false);
+  const [discordSaved, setDiscordSaved] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     fetchPrompts();
+    fetchDiscordSettings();
   }, []);
 
   async function fetchSettings() {
@@ -52,6 +60,39 @@ export default function AgenticSettings({ token }) {
       }
     } catch (err) {
       console.error("Failed to fetch prompts:", err);
+    }
+  }
+
+  async function fetchDiscordSettings() {
+    try {
+      const res = await fetch(`${API_URL}/api/settings/discord`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDiscordEnabled(data.enabled || false);
+        setDiscordWebhookUrl(data.webhookUrl || "");
+        setDiscordPrompt(data.prompt || "");
+        setDiscordClassifierReady(data.classifierReady || false);
+      }
+    } catch (err) {
+      console.error("Failed to fetch Discord settings:", err);
+    }
+  }
+
+  async function saveDiscordSettings() {
+    try {
+      const res = await fetch(`${API_URL}/api/settings/discord`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enabled: discordEnabled, webhookUrl: discordWebhookUrl, prompt: discordPrompt }),
+      });
+      if (res.ok) {
+        setDiscordSaved(true);
+        setTimeout(() => setDiscordSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to save Discord settings:", err);
     }
   }
 
@@ -341,6 +382,86 @@ export default function AgenticSettings({ token }) {
               <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Human</span>
               <span className="text-xs text-neutral-600">Replied by a human agent</span>
             </div>
+          </div>
+        </div>
+
+        {/* Discord Webhook Alerts */}
+        <div className="bg-white rounded-xl border border-neutral-200 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${discordEnabled ? "bg-indigo-100" : "bg-neutral-100"}`}>
+                <Bell className={`w-4 h-4 ${discordEnabled ? "text-indigo-600" : "text-neutral-400"}`} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">Discord Priority Alerts</p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Forward high-priority messages (bugs, payment issues, errors) to a Discord channel via webhook.
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setDiscordEnabled(!discordEnabled)} className="shrink-0">
+              {discordEnabled ? (
+                <ToggleRight className="w-10 h-10 text-indigo-500" />
+              ) : (
+                <ToggleLeft className="w-10 h-10 text-neutral-300" />
+              )}
+            </button>
+          </div>
+
+          {/* Webhook URL */}
+          <div className="mt-4 pt-4 border-t border-neutral-100">
+            <label className="text-xs font-semibold text-neutral-700 block mb-1.5">Discord Webhook URL</label>
+            <input
+              type="url"
+              value={discordWebhookUrl}
+              onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+              placeholder="https://discord.com/api/webhooks/..."
+              className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+            />
+            <p className="text-[11px] text-neutral-400 mt-1">
+              Create a webhook in your Discord channel settings → Integrations → Webhooks
+            </p>
+          </div>
+
+          {/* Classification Prompt */}
+          <div className="mt-4 pt-4 border-t border-neutral-100">
+            <label className="text-xs font-semibold text-neutral-700 block mb-1.5">Priority Classification Instructions</label>
+            <p className="text-[11px] text-neutral-400 mb-2">
+              Customize how the AI decides which messages are high-priority. Use <code className="bg-neutral-100 px-1 rounded">{"{MESSAGE}"}</code> as placeholder for the visitor's message.
+            </p>
+            <textarea
+              value={discordPrompt}
+              onChange={(e) => setDiscordPrompt(e.target.value)}
+              placeholder='You are a strict message priority classifier...'
+              className="w-full h-44 px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg resize-y text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 font-mono text-[12px]"
+            />
+          </div>
+
+          {/* Save button */}
+          <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center gap-3">
+            <button
+              onClick={saveDiscordSettings}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
+                discordSaved
+                  ? "bg-green-50 text-green-600"
+                  : "bg-indigo-500 hover:bg-indigo-600 text-white"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <Save className="w-3.5 h-3.5" />
+                {discordSaved ? "Saved!" : "Save Discord Settings"}
+              </span>
+            </button>
+            {!discordClassifierReady && (
+              <span className="text-[11px] text-amber-600">⚠️ Gemini API key required for classification</span>
+            )}
+          </div>
+
+          {/* How it works */}
+          <div className="mt-4 pt-4 border-t border-neutral-100">
+            <p className="text-[11px] text-neutral-400 leading-relaxed">
+              When a visitor sends a message, the AI classifies its priority. If classified as <strong>high priority</strong> (bugs, payment issues, errors, security concerns), it's instantly forwarded to your Discord channel so your team gets notified even when not watching the dashboard.
+            </p>
           </div>
         </div>
       </div>

@@ -9,6 +9,7 @@ import { connectDB, getDB } from "./db.js";
 import { registerUser, loginUser, verifyToken, setUserOffline, getOnlineUsers } from "./auth.js";
 import { upload, UPLOAD_DIR } from "./upload.js";
 import { generateAIReply, isAIConfigured } from "./ai.js";
+import { sendDiscordAlert, getDiscordSettings, isDiscordClassifierReady } from "./discord.js";
 
 dotenv.config();
 
@@ -216,7 +217,7 @@ const httpServer = createServer(async (req, res) => {
       const db = getDB();
       const conversations = await db
         .collection("conversations")
-        .find()
+        .find({ lastMessage: { $ne: null } })
         .sort({ lastMessageAt: -1 })
         .toArray();
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -426,6 +427,43 @@ const httpServer = createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
 
+    // ---- Discord Webhook API ----
+    } else if (url.pathname === "/api/settings/discord" && req.method === "GET") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const settings = await getDiscordSettings();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ...settings, classifierReady: isDiscordClassifierReady() }));
+
+    } else if (url.pathname === "/api/settings/discord" && req.method === "POST") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const { enabled, webhookUrl, prompt } = JSON.parse(body);
+      const db = getDB();
+      const updates = { updatedAt: new Date() };
+      if (typeof enabled === "boolean") updates.enabled = enabled;
+      if (webhookUrl !== undefined) updates.webhookUrl = webhookUrl;
+      if (prompt !== undefined) updates.prompt = prompt;
+      await db.collection("settings").updateOne(
+        { key: "discord_webhook" },
+        { $set: updates },
+        { upsert: true }
+      );
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+
     // ---- Articles API ----
     } else if (url.pathname === "/api/articles" && req.method === "GET") {
       // Public — no auth needed (visitors can fetch articles)
@@ -571,6 +609,9 @@ const agentClients = new Map();
 // Track connected widget visitors
 const visitorClients = new Map();
 
+// Live typing preview debounce map: sessionId -> { timeout, lastContent }
+const typingPreviewDebounce = new Map();
+
 function broadcastToRoom(room, data) {
   const payload = JSON.stringify(data);
   for (const [ws, client] of agentClients) {
@@ -621,7 +662,7 @@ async function broadcastConversations() {
   const db = getDB();
   const conversations = await db
     .collection("conversations")
-    .find()
+    .find({ lastMessage: { $ne: null } })
     .sort({ lastMessageAt: -1 })
     .toArray();
 
@@ -1277,6 +1318,17 @@ widgetWss.on("connection", (ws, req) => {
           await broadcastConversations();
           await broadcastStats();
 
+          // Discord high-priority alert (non-blocking)
+          if (msg.content) {
+            const visitorMeta = await db.collection("visitors").findOne({ sessionId: visitor.sessionId });
+            sendDiscordAlert(
+              visitor.name,
+              msg.content,
+              visitor.sessionId,
+              { email: visitorMeta?.email, currentPage: visitorMeta?.currentPage, country: visitorMeta?.country }
+            ).catch((err) => console.error("[Discord] Alert error:", err.message));
+          }
+
           // AI auto-reply if enabled
           const aiSetting = await db.collection("settings").findOne({ key: "ai_mode" });
           if (aiSetting?.enabled && isAIConfigured()) {
@@ -1485,6 +1537,53 @@ widgetWss.on("connection", (ws, req) => {
               }));
             }
           }
+          // Clear live preview when visitor stops typing
+          if (!data.isTyping) {
+            const debounceEntry = typingPreviewDebounce.get(visitor.sessionId);
+            if (debounceEntry) {
+              clearTimeout(debounceEntry.timeout);
+              typingPreviewDebounce.delete(visitor.sessionId);
+            }
+            for (const [agentWs, agentClient] of agentClients) {
+              if (agentWs.readyState === 1 && agentClient.viewingConversation === visitor.sessionId) {
+                agentWs.send(JSON.stringify({
+                  type: "typing_preview",
+                  sessionId: visitor.sessionId,
+                  content: "",
+                  sender: visitor.name,
+                }));
+              }
+            }
+          }
+          break;
+        }
+
+        // Live typing content preview (debounced server-side)
+        case "typing_content": {
+          const content = data.content || "";
+          const sid = visitor.sessionId;
+          const DEBOUNCE_MS = 300;
+
+          const existing = typingPreviewDebounce.get(sid);
+          if (existing) {
+            clearTimeout(existing.timeout);
+          }
+
+          const timeout = setTimeout(() => {
+            for (const [agentWs, agentClient] of agentClients) {
+              if (agentWs.readyState === 1 && agentClient.viewingConversation === sid) {
+                agentWs.send(JSON.stringify({
+                  type: "typing_preview",
+                  sessionId: sid,
+                  content: content,
+                  sender: visitor.name,
+                }));
+              }
+            }
+            typingPreviewDebounce.delete(sid);
+          }, DEBOUNCE_MS);
+
+          typingPreviewDebounce.set(sid, { timeout, lastContent: content });
           break;
         }
       }
@@ -1501,6 +1600,12 @@ widgetWss.on("connection", (ws, req) => {
         { sessionId: visitor.sessionId },
         { $set: { lastSeenAt: new Date(), online: false } }
       );
+      // Clean up live typing debounce
+      const debounceEntry = typingPreviewDebounce.get(visitor.sessionId);
+      if (debounceEntry) {
+        clearTimeout(debounceEntry.timeout);
+        typingPreviewDebounce.delete(visitor.sessionId);
+      }
     }
     visitorClients.delete(ws);
     await broadcastStats();
