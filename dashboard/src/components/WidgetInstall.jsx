@@ -13,6 +13,7 @@ export default function WidgetInstall() {
   (function() {
     var s = document.createElement('script');
     s.type = 'module';
+    s.crossOrigin = 'anonymous';
     s.src = '${widgetUrl}/widget/loader.js';
     s.async = true;
     document.head.appendChild(s);
@@ -24,6 +25,7 @@ export default function WidgetInstall() {
   (function() {
     var s = document.createElement('script');
     s.type = 'module';
+    s.crossOrigin = 'anonymous';
     s.src = '${widgetUrl}/widget/loader.js';
     s.async = true;
     document.head.appendChild(s);

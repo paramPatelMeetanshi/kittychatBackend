@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KittyChat Test Client</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 50px;
+        background-color: #f0f0f0;
+      }
+      h1 {
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Test Website for KittyChat Widget</h1>
+    <p>
+      The widget should appear in the bottom right corner, encapsulated by a
+      Shadow DOM.
+    </p>
+
+    <!-- Configuration file -->
+    <script src="env.js"></script>
+    <!-- Load the widget script -->
+    <script type="module" src="loader.js"></script>
+    <!-- Magic Browser tracker (live session replay) -->
+    <script src="magic-tracker.js"></script>
+  </body>
+</html>
