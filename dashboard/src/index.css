@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* rrweb replayer overrides for MagicBrowser */
+.replayer-wrapper iframe {
+  border: none !important;
+}
+.replayer-mouse {
+  width: 20px;
+  height: 20px;
+}
+.replayer-mouse::after {
+  background: rgba(244, 63, 94, 0.4) !important;
+}
+
+@layer base {
+  * {
+    border-color: theme("colors.neutral.200");
+  }
+  body {
+    @apply bg-white text-neutral-900 antialiased;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-50;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full;
+  }
+}
