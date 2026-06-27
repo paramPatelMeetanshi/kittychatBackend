@@ -57,36 +57,68 @@ export class KittyUI {
   }
 
   initEyeTracking() {
-    // Mini CSS cat eye tracking — moves the pupil gradient toward cursor
-    const leftEye = this.shadow.querySelector('.mini-cat-eye-l .mini-cat-pupil');
-    const rightEye = this.shadow.querySelector('.mini-cat-eye-r .mini-cat-pupil');
-    if (!leftEye || !rightEye) return;
+    const catContainer = this.shadow.getElementById('kc-cat-artwork');
+    const headJoint = this.shadow.querySelector('.kc-cat-head-joint');
+    const leftIris = this.shadow.querySelector('.kc-cat-eye.kc-left .kc-cat-eye-iris');
+    const rightIris = this.shadow.querySelector('.kc-cat-eye.kc-right .kc-cat-eye-iris');
+    const eyelids = this.shadow.querySelectorAll('.kc-cat-eyelid');
 
-    const handleMove = (mouseX, mouseY) => {
+    if (!catContainer || !headJoint || !leftIris || !rightIris) return;
+
+    // Eye + head tracking
+    document.addEventListener('mousemove', (e) => {
       if (this.chatWindow.classList.contains('open')) return;
-      const launcher = this.shadow.getElementById('launcher');
-      if (!launcher) return;
-      const rect = launcher.getBoundingClientRect();
+      const headEl = this.shadow.querySelector('.kc-cat-head');
+      if (!headEl) return;
+      const rect = headEl.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
-      const dx = mouseX - cx;
-      const dy = mouseY - cy;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 2) return;
+      if (dist < 2) {
+        leftIris.style.transform = 'translate(0px, 0px)';
+        rightIris.style.transform = 'translate(0px, 0px)';
+        headJoint.style.transform = 'translate(0px, 0px) rotate(0deg)';
+        return;
+      }
       const angle = Math.atan2(dy, dx);
-      const maxShift = 2;
-      const strength = Math.min(dist * 0.02, maxShift);
+      const maxOffset = 9;
+      const strength = Math.min(dist * 0.06, maxOffset);
       const tx = Math.cos(angle) * strength;
       const ty = Math.sin(angle) * strength;
-      leftEye.style.transform = `translate(${tx}px, ${ty}px)`;
-      rightEye.style.transform = `translate(${tx}px, ${ty}px)`;
-    };
-
-    document.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
-    document.addEventListener('mouseleave', () => {
-      leftEye.style.transform = '';
-      rightEye.style.transform = '';
+      leftIris.style.transform = `translate(${tx}px, ${ty}px)`;
+      rightIris.style.transform = `translate(${tx}px, ${ty}px)`;
+      const headStrength = Math.min(dist * 0.035, 6);
+      const hx = Math.cos(angle) * headStrength;
+      const hy = Math.sin(angle) * headStrength;
+      const hRot = hx * 0.3;
+      headJoint.style.transform = `translate(${hx}px, ${hy}px) rotate(${hRot}deg)`;
     });
+
+    // Auto-blinking
+    const triggerBlink = () => {
+      eyelids.forEach(lid => lid.style.height = '100%');
+      setTimeout(() => eyelids.forEach(lid => lid.style.height = '0%'), 150);
+      setTimeout(triggerBlink, 3000 + Math.random() * 3000);
+    };
+    setTimeout(triggerBlink, 4000);
+
+    // Happy face on click
+    let isDown = false;
+    catContainer.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      isDown = true;
+      catContainer.classList.add('kc-is-clicked');
+    });
+    document.addEventListener('mouseup', () => {
+      if (isDown) {
+        isDown = false;
+        setTimeout(() => { if (!isDown) catContainer.classList.remove('kc-is-clicked'); }, 400);
+      }
+    });
+    catContainer.addEventListener('touchstart', () => { isDown = true; catContainer.classList.add('kc-is-clicked'); }, { passive: true });
+    catContainer.addEventListener('touchend', () => { isDown = false; setTimeout(() => { if (!isDown) catContainer.classList.remove('kc-is-clicked'); }, 400); }, { passive: true });
   }
 
   initEvents() {
@@ -586,15 +618,16 @@ export class KittyUI {
     const msgDiv = document.createElement("div");
     msgDiv.className = `message ${senderClass}`;
 
-    // Apply styling based on AI vs Human (from docs)
+    // Apply styling based on AI vs Human (matching dashboard)
     if (senderClass === "agent") {
       if (msgObj.fromAI) {
         msgDiv.style.backgroundColor = "#faf5ff";
         msgDiv.style.border = "1px solid #e9d5ff";
       } else {
-        msgDiv.style.backgroundColor = "#ffffff";
-        msgDiv.style.border = "1px solid #e5e5e5";
+        msgDiv.style.backgroundColor = "#FFFFFF";
+        msgDiv.style.border = "1px solid var(--bg-warm)";
       }
+      msgDiv.style.boxShadow = "var(--shadow-soft)";
     }
 
     // Override max-width for the bubble itself since wrapper handles it
@@ -711,8 +744,8 @@ export class KittyUI {
     // Add focus/hover effects manually for inline styles
     const emailInput = formDiv.querySelector("#lc-email");
     emailInput.addEventListener("focus", () => {
-      emailInput.style.backgroundColor = "#FFF5EB";
-      emailInput.style.boxShadow = "0 0 0 2px rgba(255, 122, 0, 0.2)";
+      emailInput.style.backgroundColor = "#FFF8F0";
+      emailInput.style.boxShadow = "0 0 0 3px rgba(250, 129, 18, 0.1)";
     });
     emailInput.addEventListener("blur", () => {
       emailInput.style.backgroundColor = "var(--bg-light)";
@@ -721,7 +754,7 @@ export class KittyUI {
 
     btn.addEventListener(
       "mouseenter",
-      () => (btn.style.backgroundColor = "#E66A00"),
+      () => (btn.style.backgroundColor = "#D96A0A"),
     );
     btn.addEventListener(
       "mouseleave",

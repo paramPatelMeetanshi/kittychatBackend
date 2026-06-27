@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Mail, Server, Save, Send, RefreshCw } from "lucide-react";
+import { SettingsSkeleton } from "./Skeletons";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function EmailSettings({ token }) {
@@ -91,11 +92,7 @@ export default function EmailSettings({ token }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <RefreshCw className="w-5 h-5 animate-spin text-neutral-400" />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

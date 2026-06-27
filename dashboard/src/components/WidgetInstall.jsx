@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Code, Copy, Check, ExternalLink } from "lucide-react";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 
 export default function WidgetInstall() {
   const [copied, setCopied] = useState(null); // "script" | "full" | null

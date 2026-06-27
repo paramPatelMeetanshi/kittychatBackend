@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, MessageSquare, User, Paperclip, FileText, Image, Download, X, Languages, ChevronDown } from "lucide-react";
-import { getAvatarByRole, getMessageAvatar } from "../avatars";
+import { getAvatarByRole, getMessageAvatar, getAvatarUrl, getAvatarFromSeed } from "../avatars";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 const LANGUAGES = [
@@ -32,7 +32,7 @@ const LANGUAGES = [
   { code: "urdu", label: "Urdu" },
 ];
 
-export default function ChatPanel({ activeConversation, messages, typingUsers, typingPreview, username, onReply, onTyping, connected, emailPrompt, emailStatus, onSendEmail, onDismissEmailPrompt }) {
+export default function ChatPanel({ activeConversation, visitorInfo, messages, typingUsers, typingPreview, username, userAvatar, onReply, onTyping, connected, emailPrompt, emailStatus, onSendEmail, onDismissEmailPrompt }) {
   const [value, setValue] = useState("");
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -186,15 +186,15 @@ export default function ChatPanel({ activeConversation, messages, typingUsers, t
       {/* Header */}
       <header className="px-5 py-3 border-b border-neutral-200 flex items-center gap-3 bg-white">
         <img
-          src={getAvatarByRole("visitor")}
+          src={visitorInfo?.avatar ? getAvatarUrl(visitorInfo.avatar) : (activeConversation.avatar ? getAvatarUrl(activeConversation.avatar) : getAvatarFromSeed(activeConversation.sessionId))}
           alt={activeConversation.visitorName || "Visitor"}
-          className="w-9 h-9 rounded-full object-cover"
+          className="w-11 h-11 rounded-full object-cover ring-2 ring-warm"
         />
         <div>
-          <p className="text-sm font-semibold text-neutral-900">
+          <p className="text-base font-bold text-dark-900">
             {activeConversation.visitorName || "Visitor"}
           </p>
-          <p className="text-xs text-neutral-400">
+          <p className="text-sm text-dark-400">
             Session: {activeConversation.sessionId?.slice(0, 8)}...
           </p>
         </div>
@@ -222,13 +222,16 @@ export default function ChatPanel({ activeConversation, messages, typingUsers, t
           }
 
           const isAgent = msg.fromAgent || msg.sender === username;
-          const avatarSrc = getMessageAvatar(msg, username);
+          const visitorAvatar = msg.senderAvatar || visitorInfo?.avatar || null;
+          const avatarSrc = isAgent
+            ? (msg.fromAI ? getAvatarUrl("aicat") : getAvatarUrl(msg.senderAvatar || userAvatar))
+            : (visitorAvatar ? getAvatarUrl(visitorAvatar) : getAvatarFromSeed(activeConversation.sessionId));
 
           return (
             <div key={msg.id || msg._id || i} className={`flex items-end gap-2 ${isAgent ? "justify-end" : "justify-start"}`}>
               {/* Avatar on left for visitor messages */}
               {!isAgent && (
-                <img src={avatarSrc} alt={msg.sender} className="w-7 h-7 rounded-full object-cover shrink-0 mb-5" />
+                <img src={avatarSrc} alt={msg.sender} className="w-9 h-9 rounded-full object-cover shrink-0 mb-5" />
               )}
               <div className="max-w-[70%]">
                 <p className={`text-[11px] mb-0.5 ${isAgent ? "text-right text-orange-500" : "text-neutral-400"}`}>
@@ -328,7 +331,7 @@ export default function ChatPanel({ activeConversation, messages, typingUsers, t
               </div>
               {/* Avatar on right for agent/AI messages */}
               {isAgent && (
-                <img src={avatarSrc} alt={msg.sender} className="w-7 h-7 rounded-full object-cover shrink-0 mb-5" />
+                <img src={avatarSrc} alt={msg.sender} className="w-9 h-9 rounded-full object-cover shrink-0 mb-5" />
               )}
             </div>
           );
@@ -337,7 +340,7 @@ export default function ChatPanel({ activeConversation, messages, typingUsers, t
         {/* Live typing preview — shows actual text visitor is typing */}
         {typingPreview && typingPreview.content && (
           <div className="flex items-end gap-2 justify-start">
-            <img src={getAvatarByRole("visitor")} alt="typing" className="w-7 h-7 rounded-full object-cover shrink-0" />
+            <img src={getAvatarByRole("visitor")} alt="typing" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="bg-white border border-dashed border-orange-300 px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[70%]">
               <p className="text-sm text-neutral-500 italic leading-relaxed break-words">{typingPreview.content}</p>
               <p className="text-[10px] text-orange-400 mt-0.5">{typingPreview.sender} is typing</p>
@@ -348,7 +351,7 @@ export default function ChatPanel({ activeConversation, messages, typingUsers, t
         {/* Fallback: show "is typing..." when no preview content */}
         {!typingPreview && typingUsers.length > 0 && (
           <div className="flex items-end gap-2 justify-start">
-            <img src={getAvatarByRole("visitor")} alt="typing" className="w-7 h-7 rounded-full object-cover shrink-0" />
+            <img src={getAvatarByRole("visitor")} alt="typing" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="bg-white border border-neutral-200 px-4 py-2 rounded-2xl rounded-bl-md shadow-sm">
               <span className="text-xs text-neutral-400 animate-pulse">
                 {typingUsers.join(", ")} is typing...

@@ -3,7 +3,7 @@ import { ArrowLeft, Monitor, Globe, Clock, Maximize2, Minimize2, Radio } from "l
 import { getAvatarByRole } from "../avatars";
 import "rrweb/dist/style.css";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const MAGIC_WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${SERVER_HOST}/magic?role=dashboard`;
 
 export default function MagicBrowser({ sessionId, visitorName, onClose }) {

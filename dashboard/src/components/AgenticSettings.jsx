@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Bot, Zap, ToggleLeft, ToggleRight, AlertCircle, Clock, Timer, MessageSquare, Save, Bell } from "lucide-react";
+import { SettingsSkeleton } from "./Skeletons";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function AgenticSettings({ token }) {
@@ -174,11 +175,7 @@ export default function AgenticSettings({ token }) {
   }
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-neutral-50">
-        <p className="text-sm text-neutral-400">Loading settings...</p>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

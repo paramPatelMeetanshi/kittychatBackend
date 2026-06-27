@@ -4,7 +4,7 @@ import { getDB } from "./db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
-export async function registerUser(email, password, name) {
+export async function registerUser(email, password, name, avatar) {
   const db = getDB();
   const existing = await db.collection("users").findOne({ email });
   if (existing) {
@@ -16,13 +16,14 @@ export async function registerUser(email, password, name) {
     email,
     password: hashedPassword,
     name,
+    avatar: avatar || "cat1",
     role: "agent",
     status: "offline",
     createdAt: new Date(),
   };
 
   const result = await db.collection("users").insertOne(user);
-  return { id: result.insertedId, email, name, role: user.role };
+  return { id: result.insertedId, email, name, role: user.role, avatar: user.avatar };
 }
 
 export async function loginUser(email, password) {
@@ -38,7 +39,7 @@ export async function loginUser(email, password) {
   }
 
   const token = jwt.sign(
-    { userId: user._id.toString(), email: user.email, name: user.name, role: user.role },
+    { userId: user._id.toString(), email: user.email, name: user.name, role: user.role, avatar: user.avatar || "cat1" },
     JWT_SECRET,
     { expiresIn: "24h" }
   );
@@ -46,7 +47,7 @@ export async function loginUser(email, password) {
   // Update status
   await db.collection("users").updateOne({ _id: user._id }, { $set: { status: "online" } });
 
-  return { token, user: { id: user._id, email: user.email, name: user.name, role: user.role } };
+  return { token, user: { id: user._id, email: user.email, name: user.name, role: user.role, avatar: user.avatar || "cat1" } };
 }
 
 export function verifyToken(token) {

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Plus, Pencil, Trash2, Eye, EyeOff, X, Save, Image } from "lucide-react";
+import { ArticlesSkeleton } from "./Skeletons";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function ArticlesPage({ token }) {
@@ -191,7 +192,7 @@ export default function ArticlesPage({ token }) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {loading && <p className="text-sm text-neutral-400">Loading...</p>}
+        {loading && <ArticlesSkeleton />}
 
         {!loading && articles.length === 0 && (
           <div className="text-center py-12">

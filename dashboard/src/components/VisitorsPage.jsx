@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Users, Globe, Monitor, Clock, MapPin, Search, RefreshCw, MessageSquare, Eye } from "lucide-react";
-import { getAvatarByRole } from "../avatars";
+import { getAvatarByRole, getAvatarUrl, getAvatarFromSeed } from "../avatars";
 import MagicBrowser from "./MagicBrowser";
+import { VisitorsSkeleton } from "./Skeletons";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function VisitorsPage({ token, onOpenConversation }) {
@@ -136,9 +137,7 @@ export default function VisitorsPage({ token, onOpenConversation }) {
       {/* Visitor List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-neutral-400">Loading visitors...</p>
-          </div>
+          <VisitorsSkeleton />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-neutral-400 p-6">
             <Users className="w-10 h-10 text-neutral-200 mb-3" />
@@ -188,7 +187,7 @@ function VisitorRow({ visitor, formatTime, onOpenConversation, onMagicBrowse }) 
       {/* Avatar */}
       <div className="relative shrink-0">
         <img
-          src={getAvatarByRole("visitor")}
+          src={visitor.avatar ? getAvatarUrl(visitor.avatar) : getAvatarFromSeed(visitor.sessionId)}
           alt={visitor.name || "Visitor"}
           className="w-10 h-10 rounded-full object-cover"
         />

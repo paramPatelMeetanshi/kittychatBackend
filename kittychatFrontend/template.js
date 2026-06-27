@@ -44,34 +44,49 @@ export const widgetTemplate = `
     <div id="home-view" class="view-panel active-view">
       <div class="home-hero">
         <div class="home-hero-avatar">
-          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><polygon points="28,72 52,20 72,68" fill="#E87800"/><polygon points="36,66 52,28 66,64" fill="#FF6B00"/><polygon points="128,68 148,20 172,72" fill="#E87800"/><polygon points="134,64 148,28 164,66" fill="#FF6B00"/><rect x="20" y="55" width="160" height="130" rx="22" fill="#E87800"/><rect x="32" y="65" width="136" height="110" rx="16" fill="#1A1A1A"/><ellipse cx="14" cy="162" rx="22" ry="13" fill="#1A1A1A"/><line x1="3" y1="173" x2="8" y2="180" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="175" x2="14" y2="183" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="21" y1="174" x2="24" y2="182" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="186" cy="162" rx="22" ry="13" fill="#1A1A1A"/><line x1="175" y1="173" x2="172" y2="181" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="184" y1="175" x2="183" y2="183" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><line x1="193" y1="174" x2="196" y2="182" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/><g><circle cx="72" cy="108" r="22" fill="#F5D000"/><ellipse class="cat-pupil-left" cx="72" cy="108" rx="7" ry="13" fill="#1A1A1A"/><circle cx="76" cy="101" r="4" fill="white" opacity="0.7"/></g><g><circle cx="128" cy="108" r="22" fill="#F5D000"/><ellipse class="cat-pupil-right" cx="128" cy="108" rx="7" ry="13" fill="#1A1A1A"/><circle cx="132" cy="101" r="4" fill="white" opacity="0.7"/></g><line x1="100" y1="128" x2="100" y2="136" stroke="#E87800" stroke-width="2" stroke-linecap="round"/><path d="M93,134 Q100,130 107,134 Q110,138 100,145 Q90,138 93,134 Z" fill="#E87800"/><ellipse cx="96" cy="135" rx="3" ry="2" fill="#FF9F40" opacity="0.5"/><path d="M100,145 Q93,153 85,151" stroke="#E87800" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M100,145 Q107,153 115,151" stroke="#E87800" stroke-width="2" stroke-linecap="round" fill="none"/><line x1="35" y1="145" x2="88" y2="140" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/><line x1="35" y1="152" x2="88" y2="148" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/><line x1="35" y1="159" x2="88" y2="156" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/></svg>
+          <img src="${new URL('./kitty_logo.png', import.meta.url).href}" alt="KittyChat" style="width: 100%; height: 100%; object-fit: contain; border-radius: 10px;" />
         </div>
         <h2 class="home-hero-title">KittyChat</h2>
         <p class="home-hero-subtitle">How can we help?</p>
       </div>
       <div class="home-content">
-        <div class="home-section-title">Get help</div>
-        <div class="home-card" id="hc-send-msg">
-          <div class="hc-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div class="home-card home-card-gradient" id="hc-send-msg">
+          <div class="hc-icon-gradient">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </div>
-          <div class="hc-text">Send a message</div>
-          <div class="hc-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+          <div class="hc-card-body">
+            <div class="hc-text-bold">Send a message</div>
+            <div class="hc-text-sub">We typically reply within a few minutes</div>
+          </div>
+          <div class="hc-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></div>
         </div>
-        <div class="home-card stacked" id="hc-read-articles">
-          <div class="hc-header">
-            <div class="hc-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-            </div>
-            <div class="hc-text">Read our help articles</div>
-            <div class="hc-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+
+        <div class="home-card home-card-gradient" id="hc-read-articles">
+          <div class="hc-icon-gradient hc-icon-articles">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><line x1="9" y1="7" x2="16" y2="7"/><line x1="9" y1="11" x2="14" y2="11"/></svg>
           </div>
-          <div class="hc-links">
-            <div class="hc-link">How to install a chat widget software on my website?</div>
-            <div class="hc-link">How to use Message Triggers and Quick Replies</div>
-            <div class="hc-link">How to replace the default chatbox button</div>
+          <div class="hc-card-body">
+            <div class="hc-text-bold">Help articles</div>
+            <div class="hc-text-sub">Browse our knowledge base</div>
+          </div>
+          <div class="hc-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+
+        <div class="home-articles-list">
+          <div class="home-article-item hc-link">
+            <div class="home-article-dot"></div>
+            <span>How to install a chat widget software on my website?</span>
+          </div>
+          <div class="home-article-item hc-link">
+            <div class="home-article-dot"></div>
+            <span>How to use Message Triggers and Quick Replies</span>
+          </div>
+          <div class="home-article-item hc-link">
+            <div class="home-article-dot"></div>
+            <span>How to replace the default chatbox button</span>
           </div>
         </div>
+
         <div class="home-grid">
           <div class="home-card-small">
             <div class="hcs-title">Service status</div>
@@ -85,14 +100,7 @@ export const widgetTemplate = `
       <div id="message-feed">
       </div>
       
-      <div id="quick-replies" class="quick-replies-grid">
-        <div class="qr-row full-width">
-          <button class="quick-reply-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.06-1.9 5.42-1.9.14.92-.03 2.53-1.07 3.96A8.96 8.96 0 0 1 21 13c0 4.97-4.03 9-9 9s-9-4.03-9-9c0-2.1.8-4.01 2.08-5.46C4.03 6.11 3.86 4.5 4 3.58c.36 0 3.64-.1 5.42 1.9.65-.17 1.33-.26 2-.26z"/></svg>
-            <span>talk to a kitty</span>
-            <svg class="qr-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
+      <div id="quick-replies" class="quick-replies-grid hidden">
       </div>
       
       <div id="input-area" class="input-area-new">
@@ -154,21 +162,39 @@ export const widgetTemplate = `
   </div>
   <div id="launcher">
     <div class="launcher-cat">
-      <div class="mini-cat">
-        <div class="mini-cat-ear mini-cat-ear-l"></div>
-        <div class="mini-cat-ear mini-cat-ear-r"></div>
-        <div class="mini-cat-head">
-          <div class="mini-cat-eye mini-cat-eye-l"><div class="mini-cat-pupil"></div><div class="mini-cat-glint"></div></div>
-          <div class="mini-cat-eye mini-cat-eye-r"><div class="mini-cat-pupil"></div><div class="mini-cat-glint"></div></div>
-          <div class="mini-cat-nose"></div>
-          <div class="mini-cat-mouth"></div>
-          <div class="mini-cat-whisker mini-cat-wl1"></div>
-          <div class="mini-cat-whisker mini-cat-wl2"></div>
-          <div class="mini-cat-whisker mini-cat-wl3"></div>
-          <div class="mini-cat-whisker mini-cat-wr1"></div>
-          <div class="mini-cat-whisker mini-cat-wr2"></div>
-          <div class="mini-cat-whisker mini-cat-wr3"></div>
-        </div>
+      <div class="kc-cat-container" id="kc-cat-artwork">
+        <div class="kc-cat-ground-shadow"></div>
+        <div class="kc-cat-tail"><svg class="kc-cat-tail-svg" viewBox="0 0 100 110"><path d="M20,100 Q60,90 65,55 T80,15" fill="none" stroke="#ff7c12" stroke-width="15" stroke-linecap="round"/><path d="M74,27 Q77,21 80,15" fill="none" stroke="#ffffff" stroke-width="15" stroke-linecap="round"/></svg></div>
+        <div class="kc-cat-hip kc-left"></div>
+        <div class="kc-cat-paw-back kc-left"></div>
+        <div class="kc-cat-hip kc-right"></div>
+        <div class="kc-cat-paw-back kc-right"></div>
+        <div class="kc-cat-body"><div class="kc-cat-body-stripe kc-left kc-s1"></div><div class="kc-cat-body-stripe kc-right kc-s1"></div><div class="kc-cat-body-stripe kc-left kc-s2"></div><div class="kc-cat-body-stripe kc-right kc-s2"></div><div class="kc-cat-body-stripe kc-left kc-s3"></div><div class="kc-cat-body-stripe kc-right kc-s3"></div></div>
+        <div class="kc-cat-leg-front kc-left"></div>
+        <div class="kc-cat-leg-front kc-right"></div>
+        <div class="kc-cat-paw-front kc-left"></div>
+        <div class="kc-cat-paw-front kc-right"></div>
+        <div class="kc-cat-head-group"><div class="kc-cat-head-joint">
+          <div class="kc-cat-ear kc-left"><div class="kc-cat-ear-inner"></div></div>
+          <div class="kc-cat-ear kc-right"><div class="kc-cat-ear-inner"></div></div>
+          <div class="kc-cat-hair-tuft-1"></div><div class="kc-cat-hair-tuft-2"></div><div class="kc-cat-hair-tuft-3"></div><div class="kc-cat-hair-tuft-4"></div>
+          <div class="kc-cat-head">
+            <div class="kc-cat-cheek-fluff kc-left"><div class="kc-fluff-spike kc-spike-1"></div><div class="kc-fluff-spike kc-spike-2"></div><div class="kc-fluff-spike kc-spike-3"></div><div class="kc-fluff-spike kc-spike-4"></div></div>
+            <div class="kc-cat-cheek-fluff kc-right"><div class="kc-fluff-spike kc-spike-1"></div><div class="kc-fluff-spike kc-spike-2"></div><div class="kc-fluff-spike kc-spike-3"></div><div class="kc-fluff-spike kc-spike-4"></div></div>
+            <div class="kc-cat-eyebrow kc-left"></div>
+            <div class="kc-cat-eyebrow kc-right"></div>
+            <div class="kc-cat-eye kc-left"><div class="kc-cat-eye-iris"><div class="kc-cat-eye-pupil"></div></div><div class="kc-cat-eye-highlight-1"></div><div class="kc-cat-eye-highlight-2"></div><div class="kc-cat-eye-highlight-3"></div><div class="kc-cat-eyelid"></div></div>
+            <div class="kc-cat-eye kc-right"><div class="kc-cat-eye-iris"><div class="kc-cat-eye-pupil"></div></div><div class="kc-cat-eye-highlight-1"></div><div class="kc-cat-eye-highlight-2"></div><div class="kc-cat-eye-highlight-3"></div><div class="kc-cat-eyelid"></div></div>
+            <div class="kc-cat-muzzle-group">
+              <div class="kc-cat-muzzle-pad kc-left"><div class="kc-whisker-dot-group"><div class="kc-whisker-dot kc-d1"></div><div class="kc-whisker-dot kc-d2"></div><div class="kc-whisker-dot kc-d3"></div></div></div>
+              <div class="kc-cat-muzzle-pad kc-right"><div class="kc-whisker-dot-group"><div class="kc-whisker-dot kc-d1"></div><div class="kc-whisker-dot kc-d2"></div><div class="kc-whisker-dot kc-d3"></div></div></div>
+              <div class="kc-cat-whiskers-container kc-left"><div class="kc-whisker-line kc-w1"></div><div class="kc-whisker-line kc-w2"></div><div class="kc-whisker-line kc-w3"></div></div>
+              <div class="kc-cat-whiskers-container kc-right"><div class="kc-whisker-line kc-w1"></div><div class="kc-whisker-line kc-w2"></div><div class="kc-whisker-line kc-w3"></div></div>
+              <div class="kc-cat-nose"></div>
+              <div class="kc-cat-open-mouth"><div class="kc-cat-tongue"></div></div>
+            </div>
+          </div>
+        </div></div>
       </div>
     </div>
     <div class="launcher-close">

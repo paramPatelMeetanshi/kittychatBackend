@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, MessageSquare } from "lucide-react";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${SERVER_HOST}/widget`;
 
 function getSessionId() {

@@ -135,13 +135,15 @@ const httpServer = createServer(async (req, res) => {
 
   // --- Serve dashboard (built React app) in production ---
   const dashboardDir = path.join(__dirname, "..", "dashboard", "dist");
-  if (url.pathname.startsWith("/assets/")) {
-    const filePath = path.join(dashboardDir, url.pathname);
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/images/")) {
+    const filePath = path.join(dashboardDir, decodeURIComponent(url.pathname));
     if (existsSync(filePath) && statSync(filePath).isFile()) {
       const ext = path.extname(filePath).toLowerCase();
       const assetMimes = {
         ".js": "application/javascript", ".css": "text/css",
-        ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".gif": "image/gif", ".webp": "image/webp",
+        ".svg": "image/svg+xml", ".ico": "image/x-icon",
         ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
       };
       const mime = assetMimes[ext] || "application/octet-stream";
@@ -217,13 +219,13 @@ const httpServer = createServer(async (req, res) => {
 
   try {
     if (url.pathname === "/api/register" && req.method === "POST") {
-      const { email, password, name } = JSON.parse(body);
+      const { email, password, name, avatar } = JSON.parse(body);
       if (!email || !password || !name) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Email, password, and name are required" }));
         return;
       }
-      const user = await registerUser(email, password, name);
+      const user = await registerUser(email, password, name, avatar);
       res.writeHead(201, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, user }));
     } else if (url.pathname === "/api/login" && req.method === "POST") {
@@ -271,13 +273,74 @@ const httpServer = createServer(async (req, res) => {
         return;
       }
       const db = getDB();
+
+      // Parse query params: filter, search, page, limit
+      const filterParam = url.searchParams.get("filter") || "all"; // all, unread, read, resolved, unresolved
+      const searchParam = url.searchParams.get("search") || "";
+      const page = Math.max(1, parseInt(url.searchParams.get("page")) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit")) || 20));
+      const skip = (page - 1) * limit;
+
+      // Build query
+      const query = { lastMessage: { $ne: null } };
+      if (filterParam === "unread") query.unread = true;
+      if (filterParam === "read") query.unread = { $ne: true };
+      if (filterParam === "resolved") query.status = "resolved";
+      if (filterParam === "unresolved") query.status = { $ne: "resolved" };
+
+      // Search by visitorName or email
+      if (searchParam.trim()) {
+        const regex = { $regex: searchParam.trim(), $options: "i" };
+        query.$or = [{ visitorName: regex }];
+        // Also search visitor emails
+        const matchingVisitors = await db.collection("visitors")
+          .find({ email: regex })
+          .project({ sessionId: 1 })
+          .toArray();
+        const emailSessionIds = matchingVisitors.map(v => v.sessionId);
+        if (emailSessionIds.length > 0) {
+          query.$or.push({ sessionId: { $in: emailSessionIds } });
+        }
+      }
+
+      const total = await db.collection("conversations").countDocuments(query);
       const conversations = await db
         .collection("conversations")
-        .find({ lastMessage: { $ne: null } })
+        .find(query)
         .sort({ lastMessageAt: -1 })
+        .skip(skip)
+        .limit(limit)
         .toArray();
+
+      // Enrich with visitor email/phone/flag
+      const sessionIds = conversations.map((c) => c.sessionId);
+      const visitors = await db.collection("visitors")
+        .find({ sessionId: { $in: sessionIds } }, { projection: { sessionId: 1, email: 1, phone: 1, flag: 1, country: 1, avatar: 1 } })
+        .toArray();
+      const visitorMap = {};
+      for (const v of visitors) visitorMap[v.sessionId] = v;
+
+      const enriched = conversations.map((c) => {
+        let online = false;
+        for (const [, v] of visitorClients) {
+          if (v.sessionId === c.sessionId) { online = true; break; }
+        }
+        return {
+          ...c,
+          email: visitorMap[c.sessionId]?.email || null,
+          phone: visitorMap[c.sessionId]?.phone || null,
+          flag: visitorMap[c.sessionId]?.flag || null,
+          country: visitorMap[c.sessionId]?.country || null,
+          avatar: visitorMap[c.sessionId]?.avatar || null,
+          online,
+        };
+      });
+
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(conversations));
+      res.end(JSON.stringify({
+        conversations: enriched,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      }));
     } else if (url.pathname === "/api/visitors" && req.method === "GET") {
       // GET /api/visitors — list all visitors (online ones marked)
       const authHeader = req.headers.authorization;
@@ -898,7 +961,7 @@ async function broadcastConversations() {
   const sessionIds = conversations.map((c) => c.sessionId);
   const visitors = await db
     .collection("visitors")
-    .find({ sessionId: { $in: sessionIds } }, { projection: { sessionId: 1, email: 1, phone: 1, flag: 1, country: 1 } })
+    .find({ sessionId: { $in: sessionIds } }, { projection: { sessionId: 1, email: 1, phone: 1, flag: 1, country: 1, avatar: 1 } })
     .toArray();
   const visitorMap = {};
   for (const v of visitors) visitorMap[v.sessionId] = v;
@@ -915,6 +978,7 @@ async function broadcastConversations() {
       phone: visitorMap[c.sessionId]?.phone || null,
       flag: visitorMap[c.sessionId]?.flag || null,
       country: visitorMap[c.sessionId]?.country || null,
+      avatar: visitorMap[c.sessionId]?.avatar || null,
       online,
     };
   });
@@ -987,6 +1051,7 @@ wss.on("connection", (ws, req) => {
     name: decoded.name,
     email: decoded.email,
     role: decoded.role,
+    avatar: decoded.avatar || "cat1",
     room: "general",
     viewingConversation: null,
   };
@@ -1187,6 +1252,7 @@ wss.on("connection", (ws, req) => {
           const msg = {
             sender: client.name,
             senderId: client.userId,
+            senderAvatar: client.avatar || "cat1",
             content: (data.content || "").trim(),
             room: `visitor_${data.sessionId}`,
             timestamp: new Date(),
@@ -1464,9 +1530,14 @@ widgetWss.on("connection", (ws, req) => {
   // Geo lookup from IP
   const geo = getGeoFromIP(ip);
 
+  // Assign a random cat avatar for new visitors
+  const CAT_AVATARS = ["cat1", "cat2", "cat3", "cat4", "cat5", "cat6"];
+  const randomCat = CAT_AVATARS[Math.floor(Math.random() * CAT_AVATARS.length)];
+
   const visitorData = {
     sessionId,
     name: generateGuestName(sessionId),
+    avatar: randomCat,
     connectedAt: new Date(),
     ip,
     userAgent: userAgentStr,
@@ -1486,31 +1557,38 @@ widgetWss.on("connection", (ws, req) => {
   (async () => {
     const db = getDB();
 
-    // Check if visitor already exists (to preserve their name)
+    // Check if visitor already exists (to preserve their name and avatar)
     const existingVisitor = await db.collection("visitors").findOne({ sessionId });
-    if (existingVisitor && existingVisitor.name) {
-      visitorData.name = existingVisitor.name;
+    if (existingVisitor) {
+      if (existingVisitor.name) visitorData.name = existingVisitor.name;
+      if (existingVisitor.avatar) visitorData.avatar = existingVisitor.avatar;
     }
 
-    // Upsert visitor info
+    // Upsert visitor info — also set avatar if not present (backfill for old visitors)
+    const setFields = {
+      ip,
+      userAgent: userAgentStr,
+      browser,
+      os,
+      device,
+      language,
+      city: geo.city,
+      country: geo.country,
+      countryCode: geo.countryCode,
+      flag: geo.flag,
+      region: geo.region,
+      lastSeenAt: new Date(),
+      online: true,
+    };
+    // Backfill avatar for existing visitors who don't have one
+    if (!existingVisitor?.avatar) {
+      setFields.avatar = visitorData.avatar;
+    }
+
     await db.collection("visitors").updateOne(
       { sessionId },
       {
-        $set: {
-          ip,
-          userAgent: userAgentStr,
-          browser,
-          os,
-          device,
-          language,
-          city: geo.city,
-          country: geo.country,
-          countryCode: geo.countryCode,
-          flag: geo.flag,
-          region: geo.region,
-          lastSeenAt: new Date(),
-          online: true,
-        },
+        $set: setFields,
         $setOnInsert: {
           sessionId,
           name: visitorData.name,
@@ -1565,6 +1643,7 @@ widgetWss.on("connection", (ws, req) => {
           const msg = {
             sender: visitor.name,
             senderId: visitor.sessionId,
+            senderAvatar: visitor.avatar,
             content: (data.content || "").trim(),
             room: `visitor_${visitor.sessionId}`,
             timestamp: new Date(),
@@ -1650,6 +1729,7 @@ widgetWss.on("connection", (ws, req) => {
                 const aiMsg = {
                   sender: "AI Assistant",
                   senderId: "ai_agent",
+                  senderAvatar: "aicat",
                   content: aiReply,
                   room: `visitor_${visitor.sessionId}`,
                   timestamp: new Date(),
@@ -2169,6 +2249,7 @@ async function checkFallbackReplies() {
       const aiMsg = {
         sender: "AI Assistant",
         senderId: "ai_agent",
+        senderAvatar: "aicat",
         content: aiReply,
         room: `visitor_${conv.sessionId}`,
         timestamp: new Date(),

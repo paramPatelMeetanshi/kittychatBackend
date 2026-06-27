@@ -10,8 +10,10 @@ import ArticlesPage from "./components/ArticlesPage";
 import VisitorsPage from "./components/VisitorsPage";
 import EmailSettings from "./components/EmailSettings";
 import WidgetInstall from "./components/WidgetInstall";
+import WidgetTest from "./components/WidgetTest";
+import { ConversationListSkeleton, ChatPanelSkeleton, VisitorPanelSkeleton } from "./components/Skeletons";
 
-const SERVER_HOST = window.location.host;
+const SERVER_HOST = import.meta.env.VITE_API_HOST || window.location.host;
 const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${SERVER_HOST}`;
 
@@ -32,11 +34,45 @@ export default function App() {
   const [otherConversations, setOtherConversations] = useState([]);
   const [sharedImages, setSharedImages] = useState([]);
   const [activeView, setActiveView] = useState("inbox");
-  const [typingPreview, setTypingPreview] = useState(null); // { content, sender }
-  const [emailPrompt, setEmailPrompt] = useState(null); // { sessionId, email, visitorName, messageContent } or { sessionId, noEmail: true }
-  const [emailStatus, setEmailStatus] = useState(null); // { type, text }
+  const [typingPreview, setTypingPreview] = useState(null);
+  const [emailPrompt, setEmailPrompt] = useState(null);
+  const [emailStatus, setEmailStatus] = useState(null);
+  const [convFilter, setConvFilter] = useState("all");
+  const [convSearch, setConvSearch] = useState("");
+  const [convPage, setConvPage] = useState(1);
+  const [convPagination, setConvPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [convLoading, setConvLoading] = useState(false);
   const wsRef = useRef(null);
   const typingTimeouts = useRef({});
+
+  // Fetch conversations from REST API with filter/search/pagination
+  const fetchConversations = useCallback(async (opts = {}) => {
+    if (!token) return;
+    const f = opts.filter ?? convFilter;
+    const s = opts.search ?? convSearch;
+    const p = opts.page ?? convPage;
+    setConvLoading(true);
+    try {
+      const params = new URLSearchParams({ filter: f, search: s, page: p, limit: 20 });
+      const res = await fetch(`${API_URL}/api/conversations?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data.conversations || []);
+        setConvPagination(data.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
+      }
+    } catch (err) {
+      console.error("Failed to fetch conversations:", err);
+    } finally {
+      setConvLoading(false);
+    }
+  }, [token, convFilter, convSearch, convPage]);
+
+  // Re-fetch when filter, search, or page changes
+  useEffect(() => {
+    fetchConversations();
+  }, [convFilter, convSearch, convPage, fetchConversations]);
 
   const connect = useCallback(() => {
     if (!token) return;
@@ -92,7 +128,8 @@ export default function App() {
           );
           break;
         case "conversations":
-          setConversations(data.conversations || []);
+          // WS broadcast = something changed, refetch with current filters
+          fetchConversations();
           break;
         case "visitor_info":
           setVisitorInfo(data.visitor || null);
@@ -177,11 +214,11 @@ export default function App() {
     localStorage.setItem("chat_user", JSON.stringify(data.user));
   };
 
-  const handleRegister = async (email, password, name) => {
+  const handleRegister = async (email, password, name, avatar) => {
     const res = await fetch(`${API_URL}/api/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, avatar }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -309,6 +346,7 @@ export default function App() {
         stats={stats}
         connected={connected}
         username={user.name}
+        userAvatar={user.avatar}
         onLogout={handleLogout}
         onToggleWidget={() => setShowWidget(!showWidget)}
         inboxCount={conversations.length}
@@ -325,6 +363,8 @@ export default function App() {
         <EmailSettings token={token} />
       ) : activeView === "install" ? (
         <WidgetInstall />
+      ) : activeView === "test" ? (
+        <WidgetTest />
       ) : activeView === "visitors" ? (
         <VisitorsPage
           token={token}
@@ -339,32 +379,50 @@ export default function App() {
       ) : (
         <>
           {/* Conversation list (middle panel) */}
-          <ConversationList
-            conversations={conversations}
-            activeConversation={activeConversation}
-            onSelect={handleOpenConversation}
-            onAction={handleConversationAction}
-            stats={stats}
-          />
+          {!connected && conversations.length === 0 && convLoading ? (
+            <ConversationListSkeleton />
+          ) : (
+            <ConversationList
+              conversations={conversations}
+              activeConversation={activeConversation}
+              onSelect={handleOpenConversation}
+              onAction={handleConversationAction}
+              stats={stats}
+              filter={convFilter}
+              onFilterChange={(f) => { setConvFilter(f); setConvPage(1); }}
+              search={convSearch}
+              onSearchChange={(s) => { setConvSearch(s); setConvPage(1); }}
+              pagination={convPagination}
+              onPageChange={setConvPage}
+              loading={convLoading}
+            />
+          )}
 
           {/* Chat panel (main area) */}
-          <ChatPanel
-            activeConversation={activeConversation}
-            messages={messages}
-            typingUsers={typingUsers}
-            typingPreview={typingPreview}
-            username={user.name}
-            onReply={handleReply}
-            onTyping={handleTyping}
-            connected={connected}
-            emailPrompt={emailPrompt}
-            emailStatus={emailStatus}
-            onSendEmail={handleSendEmail}
-            onDismissEmailPrompt={handleDismissEmailPrompt}
-          />
+          {!connected && !activeConversation ? (
+            <ChatPanelSkeleton />
+          ) : (
+            <ChatPanel
+              activeConversation={activeConversation}
+              visitorInfo={visitorInfo}
+              messages={messages}
+              typingUsers={typingUsers}
+              typingPreview={typingPreview}
+              username={user.name}
+              userAvatar={user.avatar}
+              onReply={handleReply}
+              onTyping={handleTyping}
+              connected={connected}
+              emailPrompt={emailPrompt}
+              emailStatus={emailStatus}
+              onSendEmail={handleSendEmail}
+              onDismissEmailPrompt={handleDismissEmailPrompt}
+            />
+          )}
 
           {/* Visitor detail panel (right side) */}
-          {activeConversation && (
+          {activeConversation && !visitorInfo && <VisitorPanelSkeleton />}
+          {activeConversation && visitorInfo && (
             <VisitorPanel
               visitor={visitorInfo}
               onSaveNotes={handleSaveNotes}
