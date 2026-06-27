@@ -1,0 +1,10 @@
+{
+  "name": "kittychat",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd dashboard && npm install && cd ../server && npm install",
+    "build": "cd dashboard && npm run build",
+    "start": "cd server && node index.js"
+  }
+}

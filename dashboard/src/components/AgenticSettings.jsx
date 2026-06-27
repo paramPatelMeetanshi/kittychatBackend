@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Bot, Zap, ToggleLeft, ToggleRight, AlertCircle, Clock, Timer, MessageSquare, Save, Bell } from "lucide-react";
 
-const SERVER_HOST = window.location.hostname + ":3001";
-const API_URL = `http://${SERVER_HOST}`;
+const SERVER_HOST = window.location.host;
+const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function AgenticSettings({ token }) {
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -15,6 +15,12 @@ export default function AgenticSettings({ token }) {
   const [saving, setSaving] = useState(false);
   const [fallbackSaved, setFallbackSaved] = useState(false);
   const [promptsSaved, setPromptsSaved] = useState(false);
+
+  // Provider state
+  const [provider, setProvider] = useState("auto");
+  const [geminiAvailable, setGeminiAvailable] = useState(false);
+  const [groqAvailable, setGroqAvailable] = useState(false);
+  const [providerSaved, setProviderSaved] = useState(false);
 
   // Discord state
   const [discordEnabled, setDiscordEnabled] = useState(false);
@@ -40,6 +46,9 @@ export default function AgenticSettings({ token }) {
         setAiConfigured(data.aiConfigured);
         setFallbackMinutes(data.fallbackMinutes || 5);
         setFallbackEnabled(data.fallbackEnabled || false);
+        setProvider(data.provider || "auto");
+        setGeminiAvailable(data.geminiAvailable || false);
+        setGroqAvailable(data.groqAvailable || false);
       }
     } catch (err) {
       console.error("Failed to fetch AI settings:", err);
@@ -128,6 +137,23 @@ export default function AgenticSettings({ token }) {
       }
     } catch (err) {
       console.error("Failed to save fallback:", err);
+    }
+  }
+
+  async function saveProvider(newProvider) {
+    setProvider(newProvider);
+    try {
+      const res = await fetch(`${API_URL}/api/settings/ai-provider`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ provider: newProvider }),
+      });
+      if (res.ok) {
+        setProviderSaved(true);
+        setTimeout(() => setProviderSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to save provider:", err);
     }
   }
 
@@ -325,29 +351,79 @@ export default function AgenticSettings({ token }) {
           </div>
         </div>
 
-        {/* API Key Status */}
+        {/* AI Provider Selector */}
         <div className="bg-white rounded-xl border border-neutral-200 p-5">
-          <div className="flex items-start gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${aiConfigured ? "bg-green-100" : "bg-red-50"}`}>
-              {aiConfigured ? (
-                <Bot className="w-4 h-4 text-green-600" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-red-500" />
-              )}
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Bot className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-neutral-900">Gemini API</p>
-              {aiConfigured ? (
-                <p className="text-xs text-green-600 mt-0.5">Connected — API key configured</p>
-              ) : (
-                <div>
-                  <p className="text-xs text-red-500 mt-0.5">Not configured</p>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    Add <code className="bg-neutral-100 px-1 rounded">GEMINI_API_KEY</code> to <code className="bg-neutral-100 px-1 rounded">server/.env</code>
-                  </p>
-                </div>
-              )}
+              <p className="text-sm font-semibold text-neutral-900">AI Provider</p>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Choose which AI model to use for replies and translations
+              </p>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            {[
+              { value: "auto", label: "Auto (use first available)", desc: "Uses Gemini if available, falls back to Groq" },
+              { value: "gemini", label: "Gemini 2.0 Flash", desc: "Google's fast multimodal model" },
+              { value: "groq", label: "Groq — Llama 3.1 8B", desc: "Ultra-fast inference, free tier available" },
+            ].map((opt) => {
+              const isDisabled = (opt.value === "gemini" && !geminiAvailable) || (opt.value === "groq" && !groqAvailable);
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                    provider === opt.value
+                      ? "border-orange-300 bg-orange-50"
+                      : isDisabled
+                      ? "border-neutral-100 bg-neutral-50 opacity-50 cursor-not-allowed"
+                      : "border-neutral-200 hover:border-orange-200 hover:bg-orange-50/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="ai-provider"
+                    value={opt.value}
+                    checked={provider === opt.value}
+                    onChange={() => !isDisabled && saveProvider(opt.value)}
+                    disabled={isDisabled}
+                    className="accent-orange-500"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-neutral-800">{opt.label}</p>
+                    <p className="text-[11px] text-neutral-500">{opt.desc}</p>
+                  </div>
+                  {opt.value !== "auto" && (
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                      (opt.value === "gemini" && geminiAvailable) || (opt.value === "groq" && groqAvailable)
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-50 text-red-500"
+                    }`}>
+                      {(opt.value === "gemini" && geminiAvailable) || (opt.value === "groq" && groqAvailable)
+                        ? "Connected"
+                        : "No API Key"}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+
+          {providerSaved && (
+            <p className="text-xs text-green-600 mt-3">Provider saved!</p>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-neutral-100">
+            <p className="text-[11px] text-neutral-400">
+              Set API keys in <code className="bg-neutral-100 px-1 rounded">server/.env</code>:
+            </p>
+            <p className="text-[11px] text-neutral-400 mt-1 font-mono">
+              GEMINI_API_KEY=your-key-here<br/>
+              GROQ_API_KEY=your-key-here
+            </p>
           </div>
         </div>
 

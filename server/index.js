@@ -8,8 +8,9 @@ import geoip from "geoip-lite";
 import { connectDB, getDB } from "./db.js";
 import { registerUser, loginUser, verifyToken, setUserOffline, getOnlineUsers } from "./auth.js";
 import { upload, UPLOAD_DIR } from "./upload.js";
-import { generateAIReply, isAIConfigured } from "./ai.js";
+import { generateAIReply, isAIConfigured, translateMessage, getAIProviderStatus } from "./ai.js";
 import { sendDiscordAlert, getDiscordSettings, isDiscordClassifierReady } from "./discord.js";
+import { getEmailSettings, isEmailConfigured, sendEmailToVisitor, DEFAULT_TEMPLATE } from "./email.js";
 
 dotenv.config();
 
@@ -98,6 +99,61 @@ const httpServer = createServer(async (req, res) => {
       res.end("Not found");
     }
     return;
+  }
+
+  // --- Serve widget frontend files (for embedding on external sites) ---
+  if (url.pathname.startsWith("/widget/")) {
+    const widgetDir = path.join(__dirname, "..", "kittychatFrontend");
+    const fileName = url.pathname.replace("/widget/", "");
+    const filePath = path.join(widgetDir, fileName);
+    if (!existsSync(filePath) || !statSync(filePath).isFile()) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+    const ext = path.extname(fileName).toLowerCase();
+    const mimeTypes = {
+      ".js": "application/javascript",
+      ".html": "text/html",
+      ".css": "text/css",
+      ".png": "image/png",
+      ".webp": "image/webp",
+      ".jpg": "image/jpeg",
+      ".svg": "image/svg+xml",
+    };
+    const mime = mimeTypes[ext] || "application/octet-stream";
+    const stat = statSync(filePath);
+    res.writeHead(200, {
+      "Content-Type": mime,
+      "Content-Length": stat.size,
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=3600",
+    });
+    createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  // --- Serve dashboard (built React app) in production ---
+  const dashboardDir = path.join(__dirname, "..", "dashboard", "dist");
+  if (url.pathname.startsWith("/assets/")) {
+    const filePath = path.join(dashboardDir, url.pathname);
+    if (existsSync(filePath) && statSync(filePath).isFile()) {
+      const ext = path.extname(filePath).toLowerCase();
+      const assetMimes = {
+        ".js": "application/javascript", ".css": "text/css",
+        ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+        ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
+      };
+      const mime = assetMimes[ext] || "application/octet-stream";
+      const stat = statSync(filePath);
+      res.writeHead(200, {
+        "Content-Type": mime,
+        "Content-Length": stat.size,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      });
+      createReadStream(filePath).pipe(res);
+      return;
+    }
   }
 
   // --- Static file serving for uploads ---
@@ -347,12 +403,17 @@ const httpServer = createServer(async (req, res) => {
       const db = getDB();
       const setting = await db.collection("settings").findOne({ key: "ai_mode" });
       const fallback = await db.collection("settings").findOne({ key: "ai_fallback" });
+      const providerSetting = await db.collection("settings").findOne({ key: "ai_provider" });
+      const providerStatus = getAIProviderStatus();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         enabled: setting?.enabled || false,
         aiConfigured: isAIConfigured(),
         fallbackEnabled: fallback?.enabled || false,
         fallbackMinutes: fallback?.minutes || 5,
+        provider: providerSetting?.provider || "auto",
+        geminiAvailable: providerStatus.geminiAvailable,
+        groqAvailable: providerStatus.groqAvailable,
       }));
     } else if (url.pathname === "/api/settings/ai" && req.method === "POST") {
       const authHeader = req.headers.authorization;
@@ -426,6 +487,31 @@ const httpServer = createServer(async (req, res) => {
       );
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
+
+    } else if (url.pathname === "/api/settings/ai-provider" && req.method === "POST") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const { provider } = JSON.parse(body);
+      const allowed = ["auto", "gemini", "groq"];
+      if (!allowed.includes(provider)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid provider. Use: auto, gemini, or groq" }));
+        return;
+      }
+      const db = getDB();
+      await db.collection("settings").updateOne(
+        { key: "ai_provider" },
+        { $set: { provider, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, provider }));
 
     // ---- Discord Webhook API ----
     } else if (url.pathname === "/api/settings/discord" && req.method === "GET") {
@@ -578,9 +664,151 @@ const httpServer = createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(articles));
 
+    // ---- Translation API ----
+    } else if (url.pathname === "/api/translate" && req.method === "POST") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      if (!isAIConfigured()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "AI not configured. Set GEMINI_API_KEY in .env" }));
+        return;
+      }
+      const { text, targetLang } = JSON.parse(body);
+      if (!text?.trim()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "text is required" }));
+        return;
+      }
+      try {
+        const result = await translateMessage(text.trim(), targetLang || "english");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+
+    // ---- Email SMTP Settings API ----
+    } else if (url.pathname === "/api/settings/email" && req.method === "GET") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const settings = await getEmailSettings();
+      // Don't send the password back
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ...settings, pass: settings.pass ? "••••••••" : "" }));
+
+    } else if (url.pathname === "/api/settings/email" && req.method === "POST") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const { enabled, host, port, secure, user, pass, fromEmail, fromName, companyName, siteUrl, cc, template } = JSON.parse(body);
+      const db = getDB();
+      const updates = { updatedAt: new Date() };
+      if (typeof enabled === "boolean") updates.enabled = enabled;
+      if (host !== undefined) updates.host = host;
+      if (port !== undefined) updates.port = Number(port) || 587;
+      if (typeof secure === "boolean") updates.secure = secure;
+      if (user !== undefined) updates.user = user;
+      if (pass !== undefined && pass !== "••••••••") updates.pass = pass;
+      if (fromEmail !== undefined) updates.fromEmail = fromEmail;
+      if (fromName !== undefined) updates.fromName = fromName;
+      if (companyName !== undefined) updates.companyName = companyName;
+      if (siteUrl !== undefined) updates.siteUrl = siteUrl;
+      if (cc !== undefined) updates.cc = cc;
+      if (template !== undefined) updates.template = template;
+
+      await db.collection("settings").updateOne(
+        { key: "email_smtp" },
+        { $set: updates },
+        { upsert: true }
+      );
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+
+    } else if (url.pathname === "/api/settings/email/test" && req.method === "POST") {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const { toEmail } = JSON.parse(body);
+      if (!toEmail) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "toEmail required" }));
+        return;
+      }
+      try {
+        await sendEmailToVisitor(toEmail, "This is a test message from your support chat.", "Test User");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+
+    } else if (url.pathname === "/api/email/send" && req.method === "POST") {
+      // Send email to a visitor (agent-triggered)
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      const { sessionId, content } = JSON.parse(body);
+      if (!sessionId || !content?.trim()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "sessionId and content required" }));
+        return;
+      }
+      const db = getDB();
+      const visitor = await db.collection("visitors").findOne({ sessionId });
+      if (!visitor?.email) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Visitor has no email on file" }));
+        return;
+      }
+      try {
+        await sendEmailToVisitor(visitor.email, content.trim(), visitor.name);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, sentTo: visitor.email }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+
     } else {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Not found" }));
+      // SPA fallback: serve dashboard index.html for non-API routes
+      const dashIndexPath = path.join(__dirname, "..", "dashboard", "dist", "index.html");
+      if (!url.pathname.startsWith("/api/") && existsSync(dashIndexPath)) {
+        const stat = statSync(dashIndexPath);
+        res.writeHead(200, { "Content-Type": "text/html", "Content-Length": stat.size });
+        createReadStream(dashIndexPath).pipe(res);
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Not found" }));
+      }
     }
   } catch (err) {
     res.writeHead(400, { "Content-Type": "application/json" });
@@ -993,6 +1221,15 @@ wss.on("connection", (ws, req) => {
           };
           if (msg.file) msgPayload.file = msg.file;
 
+          // Check if visitor is online
+          let visitorOnline = false;
+          for (const [, v] of visitorClients) {
+            if (v.sessionId === data.sessionId) {
+              visitorOnline = true;
+              break;
+            }
+          }
+
           sendToVisitor(data.sessionId, msgPayload);
 
           // Send to other agents viewing this conversation
@@ -1006,7 +1243,73 @@ wss.on("connection", (ws, req) => {
           // Send confirmation to sender
           ws.send(JSON.stringify(msgPayload));
 
+          // If visitor is offline, check if they have an email and notify agent
+          if (!visitorOnline) {
+            const visitorRecord = await db.collection("visitors").findOne({ sessionId: data.sessionId });
+            const hasEmail = !!visitorRecord?.email;
+            const emailConfigured = await isEmailConfigured();
+
+            if (hasEmail && emailConfigured && msg.content) {
+              // If agent explicitly requested email send
+              if (data.sendEmail) {
+                try {
+                  await sendEmailToVisitor(visitorRecord.email, msg.content, visitorRecord.name);
+                  ws.send(JSON.stringify({
+                    type: "email_sent",
+                    sessionId: data.sessionId,
+                    sentTo: visitorRecord.email,
+                  }));
+                } catch (emailErr) {
+                  ws.send(JSON.stringify({
+                    type: "email_failed",
+                    sessionId: data.sessionId,
+                    error: emailErr.message,
+                  }));
+                }
+              } else {
+                // Prompt agent that visitor is offline and email is available
+                ws.send(JSON.stringify({
+                  type: "visitor_offline_prompt",
+                  sessionId: data.sessionId,
+                  email: visitorRecord.email,
+                  visitorName: visitorRecord.name,
+                  messageContent: msg.content,
+                }));
+              }
+            } else if (!visitorOnline && !hasEmail) {
+              ws.send(JSON.stringify({
+                type: "visitor_offline_no_email",
+                sessionId: data.sessionId,
+              }));
+            }
+          }
+
           await broadcastConversations();
+          break;
+        }
+
+        // Agent confirms sending email to offline visitor
+        case "email_visitor": {
+          if (!data.sessionId || !data.content?.trim()) break;
+          const visitorRecord = await db.collection("visitors").findOne({ sessionId: data.sessionId });
+          if (!visitorRecord?.email) {
+            ws.send(JSON.stringify({ type: "email_failed", sessionId: data.sessionId, error: "No email on file" }));
+            break;
+          }
+          try {
+            await sendEmailToVisitor(visitorRecord.email, data.content.trim(), visitorRecord.name);
+            ws.send(JSON.stringify({
+              type: "email_sent",
+              sessionId: data.sessionId,
+              sentTo: visitorRecord.email,
+            }));
+          } catch (emailErr) {
+            ws.send(JSON.stringify({
+              type: "email_failed",
+              sessionId: data.sessionId,
+              error: emailErr.message,
+            }));
+          }
           break;
         }
 
@@ -1528,29 +1831,15 @@ widgetWss.on("connection", (ws, req) => {
         }
 
         case "typing": {
-          for (const [agentWs, agentClient] of agentClients) {
-            if (agentWs.readyState === 1 && agentClient.viewingConversation === visitor.sessionId) {
-              agentWs.send(JSON.stringify({
-                type: "typing",
-                sender: visitor.name,
-                isTyping: data.isTyping,
-              }));
-            }
-          }
-          // Clear live preview when visitor stops typing
+          // Only forward typing: false (stop) to agents.
+          // typing: true is replaced by typing_preview (live content).
           if (!data.isTyping) {
-            const debounceEntry = typingPreviewDebounce.get(visitor.sessionId);
-            if (debounceEntry) {
-              clearTimeout(debounceEntry.timeout);
-              typingPreviewDebounce.delete(visitor.sessionId);
-            }
             for (const [agentWs, agentClient] of agentClients) {
               if (agentWs.readyState === 1 && agentClient.viewingConversation === visitor.sessionId) {
                 agentWs.send(JSON.stringify({
-                  type: "typing_preview",
-                  sessionId: visitor.sessionId,
-                  content: "",
+                  type: "typing",
                   sender: visitor.name,
+                  isTyping: false,
                 }));
               }
             }
@@ -1559,8 +1848,9 @@ widgetWss.on("connection", (ws, req) => {
         }
 
         // Live typing content preview (debounced server-side)
+        // Shows actual text being typed. Stays visible until content is empty string.
         case "typing_content": {
-          const content = data.content || "";
+          const content = data.content ?? "";
           const sid = visitor.sessionId;
           const DEBOUNCE_MS = 300;
 
@@ -1569,21 +1859,37 @@ widgetWss.on("connection", (ws, req) => {
             clearTimeout(existing.timeout);
           }
 
-          const timeout = setTimeout(() => {
+          // If content is empty, send immediately (no debounce on clear)
+          if (content === "") {
             for (const [agentWs, agentClient] of agentClients) {
               if (agentWs.readyState === 1 && agentClient.viewingConversation === sid) {
                 agentWs.send(JSON.stringify({
                   type: "typing_preview",
                   sessionId: sid,
-                  content: content,
+                  content: "",
                   sender: visitor.name,
                 }));
               }
             }
             typingPreviewDebounce.delete(sid);
-          }, DEBOUNCE_MS);
+          } else {
+            // Debounce non-empty content
+            const timeout = setTimeout(() => {
+              for (const [agentWs, agentClient] of agentClients) {
+                if (agentWs.readyState === 1 && agentClient.viewingConversation === sid) {
+                  agentWs.send(JSON.stringify({
+                    type: "typing_preview",
+                    sessionId: sid,
+                    content: content,
+                    sender: visitor.name,
+                  }));
+                }
+              }
+              typingPreviewDebounce.delete(sid);
+            }, DEBOUNCE_MS);
 
-          typingPreviewDebounce.set(sid, { timeout, lastContent: content });
+            typingPreviewDebounce.set(sid, { timeout, lastContent: content });
+          }
           break;
         }
       }

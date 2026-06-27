@@ -3,8 +3,8 @@ import { Users, Globe, Monitor, Clock, MapPin, Search, RefreshCw, MessageSquare,
 import { getAvatarByRole } from "../avatars";
 import MagicBrowser from "./MagicBrowser";
 
-const SERVER_HOST = window.location.hostname + ":3001";
-const API_URL = `http://${SERVER_HOST}`;
+const SERVER_HOST = window.location.host;
+const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function VisitorsPage({ token, onOpenConversation }) {
   const [visitors, setVisitors] = useState([]);

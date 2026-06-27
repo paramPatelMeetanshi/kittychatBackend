@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Plus, Pencil, Trash2, Eye, EyeOff, X, Save, Image } from "lucide-react";
 
-const SERVER_HOST = window.location.hostname + ":3001";
-const API_URL = `http://${SERVER_HOST}`;
+const SERVER_HOST = window.location.host;
+const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
 
 export default function ArticlesPage({ token }) {
   const [articles, setArticles] = useState([]);

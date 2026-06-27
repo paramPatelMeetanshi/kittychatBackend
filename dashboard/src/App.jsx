@@ -8,10 +8,12 @@ import VisitorPanel from "./components/VisitorPanel";
 import AgenticSettings from "./components/AgenticSettings";
 import ArticlesPage from "./components/ArticlesPage";
 import VisitorsPage from "./components/VisitorsPage";
+import EmailSettings from "./components/EmailSettings";
+import WidgetInstall from "./components/WidgetInstall";
 
-const SERVER_HOST = window.location.hostname + ":3001";
-const API_URL = `http://${SERVER_HOST}`;
-const WS_URL = `ws://${SERVER_HOST}`;
+const SERVER_HOST = window.location.host;
+const API_URL = `${window.location.protocol}//${SERVER_HOST}`;
+const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${SERVER_HOST}`;
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("chat_token"));
@@ -30,6 +32,9 @@ export default function App() {
   const [otherConversations, setOtherConversations] = useState([]);
   const [sharedImages, setSharedImages] = useState([]);
   const [activeView, setActiveView] = useState("inbox");
+  const [typingPreview, setTypingPreview] = useState(null); // { content, sender }
+  const [emailPrompt, setEmailPrompt] = useState(null); // { sessionId, email, visitorName, messageContent } or { sessionId, noEmail: true }
+  const [emailStatus, setEmailStatus] = useState(null); // { type, text }
   const wsRef = useRef(null);
   const typingTimeouts = useRef({});
 
@@ -52,6 +57,10 @@ export default function App() {
             if (data.id && prev.some((m) => m.id === data.id)) return prev;
             return [...prev, data];
           });
+          // Clear typing preview when actual message arrives from visitor
+          if (data.fromVisitor) {
+            setTypingPreview(null);
+          }
           break;
         case "history":
           setMessages(data.messages || []);
@@ -61,6 +70,16 @@ export default function App() {
           break;
         case "typing":
           handleTypingIndicator(data);
+          break;
+        case "typing_preview":
+          // Live typing content from visitor — replaces "is typing..."
+          if (data.content) {
+            setTypingPreview({ content: data.content, sender: data.sender });
+            // Clear the "is typing" indicator since preview replaces it
+            setTypingUsers([]);
+          } else {
+            setTypingPreview(null);
+          }
           break;
         case "message_deleted":
           setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
@@ -92,6 +111,28 @@ export default function App() {
         case "error":
           if (data.message === "Unauthorized") handleLogout();
           break;
+        case "visitor_offline_prompt":
+          // Server says visitor is offline but has email — prompt agent
+          setEmailPrompt({
+            sessionId: data.sessionId,
+            email: data.email,
+            visitorName: data.visitorName,
+            messageContent: data.messageContent,
+          });
+          break;
+        case "visitor_offline_no_email":
+          // Visitor offline, no email — just show a subtle note
+          setEmailPrompt({ sessionId: data.sessionId, noEmail: true });
+          break;
+        case "email_sent":
+          setEmailPrompt(null);
+          setEmailStatus({ type: "success", text: `Email sent to ${data.sentTo}` });
+          setTimeout(() => setEmailStatus(null), 4000);
+          break;
+        case "email_failed":
+          setEmailStatus({ type: "error", text: `Email failed: ${data.error}` });
+          setTimeout(() => setEmailStatus(null), 5000);
+          break;
       }
     };
 
@@ -110,6 +151,7 @@ export default function App() {
   }, [token, connect]);
 
   const handleTypingIndicator = (data) => {
+    // If we already have a live preview, don't show "is typing..." — preview takes priority
     if (data.isTyping) {
       setTypingUsers((prev) => (prev.includes(data.sender) ? prev : [...prev, data.sender]));
       if (typingTimeouts.current[data.sender]) clearTimeout(typingTimeouts.current[data.sender]);
@@ -159,6 +201,9 @@ export default function App() {
     setActiveConversation(conv);
     setMessages([]);
     setTypingUsers([]);
+    setTypingPreview(null);
+    setEmailPrompt(null);
+    setEmailStatus(null);
     setVisitorInfo(null);
     setOtherConversations([]);
     setSharedImages([]);
@@ -239,6 +284,20 @@ export default function App() {
     wsRef.current?.send(JSON.stringify({ type: "typing", isTyping }));
   };
 
+  const handleSendEmail = () => {
+    if (!emailPrompt || !emailPrompt.sessionId || !emailPrompt.messageContent) return;
+    wsRef.current?.send(JSON.stringify({
+      type: "email_visitor",
+      sessionId: emailPrompt.sessionId,
+      content: emailPrompt.messageContent,
+    }));
+    setEmailPrompt(null);
+  };
+
+  const handleDismissEmailPrompt = () => {
+    setEmailPrompt(null);
+  };
+
   if (!token || !user) {
     return <AuthScreen onLogin={handleLogin} onRegister={handleRegister} />;
   }
@@ -262,6 +321,10 @@ export default function App() {
         <AgenticSettings token={token} />
       ) : activeView === "articles" ? (
         <ArticlesPage token={token} />
+      ) : activeView === "email" ? (
+        <EmailSettings token={token} />
+      ) : activeView === "install" ? (
+        <WidgetInstall />
       ) : activeView === "visitors" ? (
         <VisitorsPage
           token={token}
@@ -289,10 +352,15 @@ export default function App() {
             activeConversation={activeConversation}
             messages={messages}
             typingUsers={typingUsers}
+            typingPreview={typingPreview}
             username={user.name}
             onReply={handleReply}
             onTyping={handleTyping}
             connected={connected}
+            emailPrompt={emailPrompt}
+            emailStatus={emailStatus}
+            onSendEmail={handleSendEmail}
+            onDismissEmailPrompt={handleDismissEmailPrompt}
           />
 
           {/* Visitor detail panel (right side) */}

@@ -14,6 +14,8 @@ import {
   LogOut,
   Activity,
   ExternalLink,
+  Mail,
+  Code,
 } from "lucide-react";
 import { getAvatarByRole } from "../avatars";
 
@@ -34,8 +36,10 @@ export default function Sidebar({ stats, connected, username, onLogout, onToggle
       <nav className="flex-1 flex flex-col items-center gap-1">
         <NavBtn icon={Inbox} label="Inbox" badge={inboxCount} active={activeView === "inbox"} onClick={() => onSetView("inbox")} />
         <NavBtn icon={Bot} label="Agentic Settings" active={activeView === "agentic"} onClick={() => onSetView("agentic")} />
+        <NavBtn icon={Mail} label="Email Settings" active={activeView === "email"} onClick={() => onSetView("email")} />
         <NavBtn icon={BookOpen} label="Articles" active={activeView === "articles"} onClick={() => onSetView("articles")} />
         <NavBtn icon={Users} label="Visitors" badge={stats.visitors} active={activeView === "visitors"} onClick={() => onSetView("visitors")} />
+        <NavBtn icon={Code} label="Install Widget" active={activeView === "install"} onClick={() => onSetView("install")} />
         <NavBtn icon={Contact} label="Contacts" />
         <NavBtn icon={Megaphone} label="Campaigns" />
         <NavBtn icon={BarChart3} label="Analytics" />

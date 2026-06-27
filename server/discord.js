@@ -1,13 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getDB } from "./db.js";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-let model = null;
-if (GEMINI_API_KEY && GEMINI_API_KEY !== "your-gemini-api-key-here") {
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-}
+import { callAI, isAIConfigured } from "./ai.js";
 
 const DEFAULT_DISCORD_PROMPT = `You are a strict message priority classifier for a customer support chat tool called KittyChat.
 
@@ -50,16 +42,15 @@ export async function getDiscordSettings() {
 }
 
 /**
- * Classify message priority using Gemini
+ * Classify message priority using the selected AI provider
  */
 export async function classifyPriority(message, customPrompt) {
-  if (!model) return "normal";
+  if (!isAIConfigured()) return "normal";
 
   try {
     const prompt = (customPrompt || DEFAULT_DISCORD_PROMPT).replace("{MESSAGE}", message);
-    const result = await model.generateContent(prompt);
-    const response = result.response.text().trim().toLowerCase();
-    return response === "high" ? "high" : "normal";
+    const response = await callAI(prompt, "You are a strict message priority classifier. Reply with ONLY one word: high or normal.");
+    return response.trim().toLowerCase() === "high" ? "high" : "normal";
   } catch (error) {
     console.error("[Discord] Priority classification error:", error.message);
     return "normal";
@@ -114,5 +105,5 @@ export async function sendDiscordAlert(visitorName, message, sessionId, metadata
 }
 
 export function isDiscordClassifierReady() {
-  return model !== null;
+  return isAIConfigured();
 }

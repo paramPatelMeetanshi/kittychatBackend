@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, MessageSquare } from "lucide-react";
 
-const SERVER_HOST = window.location.hostname + ":3001";
-const WS_URL = `ws://${SERVER_HOST}/widget`;
+const SERVER_HOST = window.location.host;
+const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${SERVER_HOST}/widget`;
 
 function getSessionId() {
   let id = sessionStorage.getItem("chat_widget_session");
